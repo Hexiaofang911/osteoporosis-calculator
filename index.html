@@ -1,181 +1,28 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firth LR 骨质疏松风险计算器</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f5f5f5; }
-        .container { background-color: white; border-radius: 10px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h1 { color: #2E86AB; text-align: center; }
-        h3 { color: #2E86AB; border-bottom: 2px solid #2E86AB; padding-bottom: 10px; }
-        .row { display: flex; margin-bottom: 15px; }
-        .col { flex: 1; padding: 0 10px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        input, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        button { background-color: #2E86AB; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 5px; cursor: pointer; width: 100%; margin: 20px 0; }
-        button:hover { background-color: #1a5f7a; }
-        .result { background-color: #f8f9fa; border-radius: 5px; padding: 20px; margin-top: 20px; }
-        .high-risk { background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; }
-        .low-risk { background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; }
-        .footer { text-align: center; margin-top: 30px; color: #777; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🦴 类风湿关节炎患者<br>骨质疏松风险计算器</h1>
-        <p style="text-align: center; color: #666;">基于Firth惩罚逻辑回归模型</p>
-        
-        <div class="row">
-            <div class="col">
-                <h3>患者基本信息</h3>
-                <label>年龄 (岁)</label>
-                <input type="number" id="age" value="50" min="18" max="100">
-                
-                <label>绝经状态</label>
-                <select id="menopause">
-                    <option value="0">未绝经</option>
-                    <option value="1" selected>已绝经</option>
-                </select>
-                
-                <label>BMI (kg/m²)</label>
-                <input type="number" id="bmi" value="24" min="15" max="45" step="0.5">
-                
-                <label>血钙 (mmol/L)</label>
-                <input type="number" id="calcium" value="2.2" min="1.5" max="3.0" step="0.1">
-            </div>
-            
-            <div class="col">
-                <h3>疾病相关指标</h3>
-                <label>DAS28-ESR</label>
-                <input type="number" id="das_esr" value="3.0" min="1" max="9" step="0.1">
-                
-                <label>抗CCP抗体 (U/mL)</label>
-                <input type="number" id="capa" value="0" min="0" max="500" step="1">
-                
-                <label>激素累积量 (g)</label>
-                <input type="number" id="c_amount" value="0" min="0" step="0.1">
-                
-                <label>病程 (年)</label>
-                <input type="number" id="disease_duration" value="5" min="0" step="0.5">
-            </div>
-        </div>
-        
-        <div class="row">
-            <div class="col">
-                <h3>用药史</h3>
-                <label>激素长期使用 (≥3个月)</label>
-                <select id="gc_duration">
-                    <option value="0" selected>否</option>
-                    <option value="1">是</option>
-                </select>
-                
-                <label>PPI使用</label>
-                <select id="ppi">
-                    <option value="0" selected>否</option>
-                    <option value="1">是</option>
-                </select>
-                
-                <label>生物制剂使用</label>
-                <select id="bra">
-                    <option value="0" selected>否</option>
-                    <option value="1">是</option>
-                </select>
-            </div>
-            
-            <div class="col">
-                <h3>病史</h3>
-                <label>跌倒史</label>
-                <select id="fall_history">
-                    <option value="0" selected>无</option>
-                    <option value="1">有</option>
-                </select>
-                
-                <label>脆性骨折史</label>
-                <select id="fragility_fracture">
-                    <option value="0" selected>无</option>
-                    <option value="1">有</option>
-                </select>
-            </div>
-        </div>
-        
-        <button onclick="calculateRisk()">计算风险</button>
-        
-        <div class="result" id="result">
-            <h3>预测结果</h3>
-            <p id="probability" style="font-size: 24px; text-align: center; font-weight: bold;">--</p>
-            <div id="risk_class"></div>
-        </div>
-        
-        <div class="footer">
-            <p>模型性能: AUC(内部验证)=0.8775 | AUC(外部验证)=0.8391 | 最佳阈值=0.555</p>
-            <p>© 2026 仅供研究使用</p>
-        </div>
-    </div>
-
-    <script>
-    function calculateRisk() {
-        // 获取输入值
-        const age = parseFloat(document.getElementById("age").value);
-        const menopause = parseFloat(document.getElementById("menopause").value);
-        const bmi = parseFloat(document.getElementById("bmi").value);
-        const calcium = parseFloat(document.getElementById("calcium").value);
-        const das_esr = parseFloat(document.getElementById("das_esr").value);
-        const capa = parseFloat(document.getElementById("capa").value);
-        const c_amount = parseFloat(document.getElementById("c_amount").value);
-        const disease_duration = parseFloat(document.getElementById("disease_duration").value);
-        const gc_duration = parseFloat(document.getElementById("gc_duration").value);
-        const ppi = parseFloat(document.getElementById("ppi").value);
-        const bra = parseFloat(document.getElementById("bra").value);
-        const fall_history = parseFloat(document.getElementById("fall_history").value);
-        const fragility_fracture = parseFloat(document.getElementById("fragility_fracture").value);
-        
-        // Firth LR模型系数
-        const intercept = -5.3443;
-        const coef_menopause = 2.13;
-        const coef_age = 0.14;
-        const coef_c_amount = 0.0001;
-        const coef_das_esr = 0.47;
-        const coef_capa = 0.009;
-        const coef_calcium = -5.14;
-        const coef_gc_duration = 0.39;
-        const coef_fall_history = 2.54;
-        const coef_bmi = -0.14;
-        const coef_fragility = 0.65;
-        const coef_ppi = 1.18;
-        const coef_bra = 3.21;
-        const coef_disease = 0.005;
-        
-        // 计算logit
-        const logit = intercept + 
-                      coef_menopause * menopause +
-                      coef_age * age +
-                      coef_c_amount * c_amount +
-                      coef_das_esr * das_esr +
-                      coef_capa * capa +
-                      coef_calcium * calcium +
-                      coef_gc_duration * gc_duration +
-                      coef_fall_history * fall_history +
-                      coef_bmi * bmi +
-                      coef_fragility * fragility_fracture +
-                      coef_ppi * ppi +
-                      coef_bra * bra +
-                      coef_disease * disease_duration;
-        
-        // 计算概率
-        const prob = 1 / (1 + Math.exp(-logit));
-        const prob_percent = (prob * 100).toFixed(1);
-        
-        // 显示结果
-        document.getElementById("probability").innerHTML = prob_percent + "%";
-        
-        const riskDiv = document.getElementById("risk_class");
-        if (prob > 0.555) {
-            riskDiv.innerHTML = "<div class='high-risk'><strong>高风险</strong> - 建议进行DXA检查和干预</div>";
-        } else {
-            riskDiv.innerHTML = "<div class='low-risk'><strong>低风险</strong> - 定期随访，预防为主</div>";
-        }
-    }
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shiny App</title>
+    <script
+      src="./shinylive/load-shinylive-sw.js"
+      type="module"
+    ></script>
+    <script type="module">
+      import { runExportedApp } from "./shinylive/shinylive.js";
+      runExportedApp({
+        id: "root",
+        appEngine: "r",
+        relPath: "",
+      });
     </script>
-</body>
+    <link rel="stylesheet" href="./shinylive/style-resets.css" />
+    <link rel="stylesheet" href="./shinylive/shinylive.css" />
+    
+  </head>
+  <body>
+    
+    <div style="height: 100vh; width: 100vw" id="root"></div>
+    
+  </body>
 </html>
