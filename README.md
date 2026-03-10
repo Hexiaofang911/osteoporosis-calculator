@@ -1,2 +1,2 @@
 # osteoporosis-calculator
-Firth LR Osteoporosis Risk Calculator
+SVM Osteoporosis Risk Calculator
